@@ -3,40 +3,35 @@ pragma solidity ^0.8.10;
 
 import {SafeTransferLib, ERC20} from "solmate/utils/SafeTransferLib.sol";
 
-contract RewardsClaimer {
+contract Harvester {
     using SafeTransferLib for ERC20;
-
+    //emit when vault destination is changed
     event RewardDestinationUpdate(address indexed newDestination);
 
-    event ClaimRewards(address indexed rewardToken, uint256 amount);
+    event ClaimRewards(ERC20 indexed rewardToken, uint256 amount);
 
     /// @notice the address to send rewards
     address public rewardDestination;
 
-    /// @notice the array of reward tokens to send to
-    ERC20[] public rewardTokens;
+    /// @notice reward token
+    ERC20 public rewardToken;
 
-    constructor(address _rewardDestination, ERC20[] memory _rewardTokens) {
+    constructor(address _rewardDestination, ERC20 _rewardToken) {
         rewardDestination = _rewardDestination;
-        rewardTokens = _rewardTokens;
+        rewardToken = _rewardToken;
     }
 
-    /// @notice claim all token rewards
+    /// @notice claim outstanding rewards
     function claimRewards() internal {
-        beforeClaim(); // hook to accrue/pull in rewards, if needed
-
-        // send all tokens to destination
-        for (uint256 i = 0; i < rewardTokens.length; i++) {
-            ERC20 token = rewardTokens[i];
-            emit ClaimRewards(
-                address(token),
-                _transferAll(token, rewardDestination)
-            );
+        uint256 amount = rewardToken.balanceOf(address(this));
+        if (amount > 0) {
+            rewardToken.transfer(rewardDestination, amount);
+            emit ClaimRewards(rewardToken, amount);
         }
     }
 
-    /// @notice set the address of the new reward destination
-    /// @param newDestination the new reward destination
+    /// @notice set the address of the new reward destination (vault)
+    /// @param newDestination the new reward destination (vault)
     function setRewardDestination(address newDestination) external {
         require(msg.sender == rewardDestination, "UNAUTHORIZED");
         rewardDestination = newDestination;
